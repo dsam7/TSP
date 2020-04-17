@@ -3,22 +3,36 @@ import math
 import random
 from time import time
 import signal
+import sys
 
-start = time()
+starttime = time()
 cities = []
 points = []
+input_file = ''
+output_file = ''
+endtime = 0
 
-with open('./mat-test.txt') as f:
+#get command line arguments
+if len(sys.argv) != 4:
+    print("incorrect number of arguments passed")
+    exit()
+else:
+    input_file = sys.argv[1]
+    output_file = sys.argv[2]
+    endtime = int(sys.argv[3]) + starttime
+
+with open('./' + input_file) as f:
     for line in f.readlines():
         city = line.split(' ')
         cities.append(dict(index=int(city[0]), x=float(city[1]), y=float(city[2])))
         points.append((float(city[1]), float(city[2])))
 
-distances = np.empty((len(points), len(points)))
+distances = np.empty((len(points)+1, len(points)+1))
 for i in range(len(points)):
     for j in range(len(points)):
-        distances[i,j] = round(math.sqrt(
-                ((points[i][0] - points[j][0]) ** 2 + (points[i][1] - points[j][1]) ** 2)))
+        #could use cities to get actual ID but we know that nodes will always be ordered 1,2,...,last-node
+        distances[i+1,j+1] = int(round(math.sqrt(
+                ((points[i][0] - points[j][0]) ** 2 + (points[i][1] - points[j][1]) ** 2))))
 
 def pathCost(path):
     total_distance = 0
@@ -30,9 +44,9 @@ def pathCost(path):
 def nearest_neighbor():
     length = len(points)
     free_nodes = []
-    for i in range(length):
+    for i in range(1,length+1):
         free_nodes.append(i)
-    curr = random.randint(0,length-1)
+    curr = random.randint(1,length)
     free_nodes.remove(curr)
     solution = [curr]
     while free_nodes:
@@ -56,7 +70,7 @@ def simulated_annealing(temp):
     best_temperature = temperature
     explored = []
     explored.append(current_route)
-    for iter in range(50000):
+    for iter in range(10000):
         new_route = next_state(current_route)
         if new_route not in explored and temperature >= .00001:
             explored.append(new_route)
@@ -76,14 +90,20 @@ def simulated_annealing(temp):
 
     return pathCost(best_route), best_route
 
-cost = simulated_annealing(1)
+cost,path = simulated_annealing(1)
 
 def _handle_timeout(signum, frame):
-    print(cost)
+    #print(cost)
+    #print(path)
+    f = open("./" + output_file, "w")
+    f.write(str(cost)+"\n")
+    for i in path:
+        f.write(str(i) + " ")
     exit()
 signal.signal(signal.SIGALRM, _handle_timeout)
-signal.alarm(int(start + 180 - time()))
+signal.alarm(int(endtime - time()))
 while True:
-    new_cost = simulated_annealing(1)
+    new_cost, new_path = simulated_annealing(1)
     if new_cost < cost:
         cost = new_cost
+        path = new_path
